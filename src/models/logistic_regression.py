@@ -366,7 +366,10 @@ def plot_roc_curves(best_model, X_test, y_test, classes):
         # Also compute per-class AUC for the return value
         roc_auc = {}
         y_test_bin = label_binarize(y_test, classes=classes)
-        if y_test_bin.ndim == 1:
+        if y_test_bin.ndim == 1 or y_test_bin.shape[1] == 1:
+            # Binary case: label_binarize returns (n,1), expand to (n,2)
+            if y_test_bin.ndim == 1:
+                y_test_bin = y_test_bin.reshape(-1, 1)
             y_test_bin = np.column_stack([1 - y_test_bin, y_test_bin])
         for i, c in enumerate(classes):
             fpr_c, tpr_c, _ = roc_curve(y_test_bin[:, i], y_prob[:, i])
