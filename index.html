@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSAI412 — Phishing Website Detection Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --primary: #1A237E;
+            --primary-light: #283593;
+            --primary-dark: #0D1442;
+            --secondary: #1565C0;
+            --accent: #D32F2F;
+            --success: #388E3C;
+            --warning: #F57F17;
+            --bg: #F5F7FA;
+            --bg-card: #FFFFFF;
+            --text: #1A1A2E;
+            --text-light: #4A5568;
+            --text-muted: #90A4AE;
+            --border: #E2E8F0;
+            --shadow: 0 2px 12px rgba(26, 35, 126, 0.08);
+            --shadow-hover: 0 8px 30px rgba(26, 35, 126, 0.15);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 50%, var(--secondary) 100%);
+            color: white;
+            padding: 2.5rem 2rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at center, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: headerShimmer 8s ease-in-out infinite;
+        }
+        @keyframes headerShimmer {
+            0%, 100% { transform: translateX(-20%) translateY(-10%); }
+            50% { transform: translateX(20%) translateY(10%); }
+        }
+        .header h1 {
+            font-size: 2.4rem;
+            font-weight: 800;
+            margin-bottom: 0.4rem;
+            position: relative;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            font-size: 1.05rem;
+            opacity: 0.9;
+            position: relative;
+            font-weight: 400;
+        }
+        .header-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 0.3rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-top: 0.8rem;
+            position: relative;
+            font-weight: 500;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            padding: 1.2rem 1.5rem 0;
+            max-width: 1400px;
+            margin: 0 auto;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .tab-btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            background: transparent;
+            color: var(--text-light);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+            transition: var(--transition);
+            white-space: nowrap;
+            position: relative;
+        }
+        .tab-btn:hover {
+            background: rgba(26, 35, 126, 0.06);
+            color: var(--primary);
+        }
+        .tab-btn.active {
+            background: var(--bg-card);
+            color: var(--primary);
+            box-shadow: 0 -2px 8px rgba(26, 35, 126, 0.1);
+        }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+            border-radius: 3px 3px 0 0;
+        }
+
+        /* Tab content */
+        .tab-content {
+            display: none;
+            background: var(--bg-card);
+            border-radius: 0 var(--radius) var(--radius) var(--radius);
+            padding: 2rem;
+            margin: 0 1.5rem 2rem;
+            max-width: calc(1400px - 3rem);
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: var(--shadow);
+            animation: fadeIn 0.4s ease;
+        }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Section titles */
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 0.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .section-subtitle {
+            color: var(--text-light);
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+        }
+        .subsection-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text);
+            margin: 2rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        /* Metric cards */
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #F0F4F8 0%, #E8EDF5 100%);
+            border-radius: var(--radius-sm);
+            padding: 1.2rem;
+            border-left: 4px solid var(--primary);
+            transition: var(--transition);
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+        .metric-card .label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .metric-card .value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-top: 0.2rem;
+        }
+        .metric-card.danger {
+            border-left-color: var(--accent);
+        }
+        .metric-card.danger .value {
+            color: var(--accent);
+        }
+        .metric-card.safe {
+            border-left-color: var(--success);
+        }
+        .metric-card.safe .value {
+            color: var(--success);
+        }
+
+        /* Image grid */
+        .fig-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .fig-grid.three-col {
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        }
+        .fig-card {
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            transition: var(--transition);
+            border: 1px solid var(--border);
+        }
+        .fig-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-hover);
+            border-color: var(--primary-light);
+        }
+        .fig-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .fig-card .fig-caption {
+            padding: 0.8rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text);
+            background: white;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Full-width figure */
+        .fig-full {
+            margin: 1.5rem 0;
+        }
+        .fig-full img {
+            width: 100%;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+
+        /* Tables */
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1rem 0;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        thead th {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 0.85rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        tbody td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        tbody tr:hover {
+            background: rgba(26, 35, 126, 0.03);
+        }
+        tbody tr:last-child td { border-bottom: none; }
+        .highlight-row {
+            background: linear-gradient(135deg, #D5F5E3 0%, #ABEBC6 100%) !important;
+            font-weight: 600;
+        }
+        .highlight-cell {
+            background: #D5F5E3;
+            font-weight: 700;
+        }
+
+        /* Best model callout */
+        .best-model-callout {
+            background: linear-gradient(135deg, #D5F5E3 0%, #ABEBC6 100%);
+            border: 2px solid var(--success);
+            border-radius: var(--radius);
+            padding: 1.2rem 1.5rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .best-model-callout .trophy { font-size: 1.4rem; }
+        .best-model-callout .model-name {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #1E8449;
+        }
+        .best-model-callout .model-acc {
+            font-size: 1rem;
+            color: #27AE60;
+            font-weight: 600;
+        }
+
+        /* Chart containers */
+        .chart-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .chart-box {
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            padding: 1.2rem;
+            border: 1px solid var(--border);
+        }
+        .chart-box h4 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 0.8rem;
+        }
+        .chart-box canvas {
+            width: 100% !important;
+        }
+
+        /* Model selector */
+        .model-select-wrap {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .model-select-wrap label {
+            font-weight: 600;
+            color: var(--text);
+        }
+        .model-select-wrap select {
+            padding: 0.6rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            background: white;
+            color: var(--text);
+            cursor: pointer;
+            transition: var(--transition);
+            min-width: 220px;
+        }
+        .model-select-wrap select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.15);
+        }
+
+        /* Commentary box */
+        .commentary {
+            background: linear-gradient(135deg, #E8EAF6 0%, #C5CAE9 100%);
+            border-left: 4px solid var(--secondary);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            padding: 1rem 1.5rem;
+            margin: 1.5rem 0;
+            font-size: 0.92rem;
+            line-height: 1.7;
+        }
+        .commentary strong { color: var(--primary); }
+
+        /* Key findings */
+        .findings {
+            background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+            border-left: 4px solid var(--accent);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            padding: 1rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .findings h4 {
+            color: #C62828;
+            margin-bottom: 0.5rem;
+        }
+        .findings ul {
+            margin-left: 1.2rem;
+            font-size: 0.92rem;
+        }
+        .findings li { margin-bottom: 0.3rem; }
+
+        /* Safe findings (green variant) */
+        .findings-safe {
+            background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+            border-left: 4px solid var(--success);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            padding: 1rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .findings-safe h4 {
+            color: #2E7D32;
+            margin-bottom: 0.5rem;
+        }
+        .findings-safe ul {
+            margin-left: 1.2rem;
+            font-size: 0.92rem;
+        }
+        .findings-safe li { margin-bottom: 0.3rem; }
+
+        /* About section */
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 1.5rem;
+        }
+        .about-card {
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        .about-card h4 {
+            color: var(--primary);
+            margin-bottom: 0.8rem;
+            font-size: 1.1rem;
+        }
+        .about-card ul { margin-left: 1.2rem; }
+        .about-card li { margin-bottom: 0.4rem; font-size: 0.92rem; }
+        .methodology-step {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        .step-num {
+            width: 36px;
+            height: 36px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+        .step-text h5 { margin-bottom: 0.2rem; font-size: 0.95rem; }
+        .step-text p { font-size: 0.85rem; color: var(--text-light); }
+
+        /* Divider */
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 2rem 0;
+        }
+
+        /* Feature stats table */
+        .stats-table td:first-child { font-weight: 600; }
+        .stats-table .type-binary { color: var(--primary); font-weight: 600; font-size: 0.8rem; }
+        .stats-table .type-ternary { color: var(--secondary); font-weight: 600; font-size: 0.8rem; }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        /* Model detail panel */
+        .model-detail-panel { display: none; }
+        .model-detail-panel.active { display: block; }
+
+        /* Tag styles */
+        .tag {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .tag-phishing {
+            background: #FFCDD2;
+            color: #C62828;
+        }
+        .tag-legit {
+            background: #C8E6C9;
+            color: #2E7D32;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .header h1 { font-size: 1.6rem; }
+            .tabs { padding: 1rem 1rem 0; }
+            .tab-btn { padding: 0.6rem 1rem; font-size: 0.82rem; }
+            .tab-content { padding: 1.2rem; margin: 0 1rem 1.5rem; }
+            .fig-grid { grid-template-columns: 1fr; }
+            .chart-row { grid-template-columns: 1fr; }
+            .about-grid { grid-template-columns: 1fr; }
+            .metrics-row { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .metrics-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ============================================================= -->
+<!-- HEADER                                                         -->
+<!-- ============================================================= -->
+<div class="header">
+    <h1>&#128272; Phishing Website Detection Dashboard</h1>
+    <p>CSAI412 Machine Learning Group Project &mdash; UCI Phishing Websites Dataset</p>
+    <span class="header-badge">11,055 samples &bull; 30 features &bull; Binary Classification &bull; 7 models compared</span>
+</div>
+
+<!-- ============================================================= -->
+<!-- TABS                                                           -->
+<!-- ============================================================= -->
+<div class="tabs" role="tablist">
+    <button class="tab-btn active" onclick="switchTab('dataset')" role="tab">&#128202; Dataset Explorer</button>
+    <button class="tab-btn" onclick="switchTab('comparison')" role="tab">&#127942; Model Comparison</button>
+    <button class="tab-btn" onclick="switchTab('details')" role="tab">&#128269; Model Details</button>
+    <button class="tab-btn" onclick="switchTab('pca')" role="tab">&#127757; PCA &amp; Clustering</button>
+    <button class="tab-btn" onclick="switchTab('about')" role="tab">&#9432; About</button>
+</div>
+
+<!-- ============================================================= -->
+<!-- TAB 1: DATASET EXPLORER                                        -->
+<!-- ============================================================= -->
+<div id="tab-dataset" class="tab-content active">
+    <h2 class="section-title">&#128202; Dataset Explorer</h2>
+    <p class="section-subtitle">Explore the UCI Phishing Websites dataset &mdash; 30 URL and website characteristics for detecting phishing attacks.</p>
+
+    <div class="metrics-row">
+        <div class="metric-card">
+            <div class="label">Total Samples</div>
+            <div class="value">11,055</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Features</div>
+            <div class="value">30</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Classes</div>
+            <div class="value">2</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Missing Values</div>
+            <div class="value">0</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Balance Ratio</div>
+            <div class="value">1.26:1</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Source</div>
+            <div class="value">UCI Repository</div>
+        </div>
+    </div>
+
+    <h3 class="subsection-title">Feature Catalogue</h3>
+    <div class="table-wrap">
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>Type</th>
+                    <th>Values</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>having_IP_Address</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>IP address used in URL instead of domain name</td></tr>
+                <tr><td>URL_Length</td><td><span class="type-ternary">Ternary</span></td><td>{-1, 0, 1}</td><td>Length of the URL (short / medium / long)</td></tr>
+                <tr><td>Shortining_Service</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>URL shortening service used (e.g., bit.ly, tinyurl)</td></tr>
+                <tr><td>having_At_Symbol</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>@ symbol present in URL</td></tr>
+                <tr><td>double_slash_redirecting</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Double slash (//) redirect in URL path</td></tr>
+                <tr><td>Prefix_Suffix</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Dash (-) in domain name part of URL</td></tr>
+                <tr><td>having_Sub_Domain</td><td><span class="type-ternary">Ternary</span></td><td>{-1, 0, 1}</td><td>Number of subdomains (dots in URL)</td></tr>
+                <tr><td>SSLfinal_State</td><td><span class="type-ternary">Ternary</span></td><td>{-1, 0, 1}</td><td>SSL certificate state and issuer trust</td></tr>
+                <tr><td>Domain_registeration_length</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Domain registration length (&le;1 year = suspicious)</td></tr>
+                <tr><td>Favicon</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Favicon loaded from external domain</td></tr>
+                <tr><td>port</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Non-standard port used</td></tr>
+                <tr><td>HTTPS_token</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>HTTPS token in domain name part</td></tr>
+                <tr><td>Request_URL</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Percentage of external request URLs</td></tr>
+                <tr><td>URL_of_Anchor</td><td><span class="type-ternary">Ternary</span></td><td>{-1, 0, 1}</td><td>Percentage of anchor URLs pointing externally</td></tr>
+                <tr><td>Links_in_tags</td><td><span class="type-ternary">Ternary</span></td><td>{-1, 0, 1}</td><td>Percentage of links in meta/script/link tags</td></tr>
+                <tr><td>SFH</td><td><span class="type-ternary">Ternary</span></td><td>{-1, 0, 1}</td><td>Server Form Handler (blank or different domain)</td></tr>
+                <tr><td>Submitting_to_email</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Form submits data via mailto:</td></tr>
+                <tr><td>Abnormal_URL</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>URL hostname not in WHOIS response</td></tr>
+                <tr><td>Redirect</td><td><span class="type-binary">Binary</span></td><td>{0, 1}</td><td>Number of redirects (&ge;4 = phishing)</td></tr>
+                <tr><td>on_mouseover</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>JavaScript onMouseOver to hide real URL</td></tr>
+                <tr><td>RightClick</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Right-click disabled via JavaScript</td></tr>
+                <tr><td>popUpWidnow</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Pop-up window with text form fields</td></tr>
+                <tr><td>Iframe</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Iframe used to display other pages</td></tr>
+                <tr><td>age_of_domain</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Domain age (&lt;6 months = suspicious)</td></tr>
+                <tr><td>DNSRecord</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>DNS record exists for the domain</td></tr>
+                <tr><td>web_traffic</td><td><span class="type-ternary">Ternary</span></td><td>{-1, 0, 1}</td><td>Alexa web traffic rank</td></tr>
+                <tr><td>Page_Rank</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Google PageRank value</td></tr>
+                <tr><td>Google_Index</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Indexed by Google search engine</td></tr>
+                <tr><td>Links_pointing_to_page</td><td><span class="type-ternary">Ternary</span></td><td>{-1, 0, 1}</td><td>Number of external links pointing to the page</td></tr>
+                <tr><td>Statistical_report</td><td><span class="type-binary">Binary</span></td><td>{-1, 1}</td><td>Listed in statistical phishing reports</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3 class="subsection-title">Class Distribution</h3>
+    <div class="fig-grid">
+        <div class="fig-card">
+            <img src="figures/class_distribution.png" alt="Class Distribution" loading="lazy">
+            <div class="fig-caption">Class Distribution &mdash; Phishing vs Legitimate</div>
+        </div>
+        <div class="fig-card">
+            <img src="figures/correlation_with_target.png" alt="Correlation with Target" loading="lazy">
+            <div class="fig-caption">Feature Correlation with Target (Phishing/Legitimate)</div>
+        </div>
+    </div>
+
+    <h3 class="subsection-title">Correlation Heatmap</h3>
+    <div class="fig-full">
+        <div class="fig-card">
+            <img src="figures/correlation_heatmap.png" alt="Correlation Heatmap" loading="lazy">
+            <div class="fig-caption">Pairwise Feature Correlation Heatmap (30 Features)</div>
+        </div>
+    </div>
+
+    <h3 class="subsection-title">Feature Analysis</h3>
+    <div class="fig-grid">
+        <div class="fig-card">
+            <img src="figures/feature_distributions.png" alt="Feature Distributions" loading="lazy">
+            <div class="fig-caption">Feature Value Distributions</div>
+        </div>
+        <div class="fig-card">
+            <img src="figures/feature_distributions_by_class.png" alt="Feature Distributions by Class" loading="lazy">
+            <div class="fig-caption">Feature Distributions Split by Class</div>
+        </div>
+    </div>
+
+    <div class="fig-grid">
+        <div class="fig-card">
+            <img src="figures/feature_importance.png" alt="Feature Importance" loading="lazy">
+            <div class="fig-caption">Overall Feature Importance Ranking</div>
+        </div>
+        <div class="fig-card">
+            <img src="figures/feature_proportions_per_class.png" alt="Feature Proportions per Class" loading="lazy">
+            <div class="fig-caption">Feature Value Proportions per Class</div>
+        </div>
+    </div>
+
+    <div class="fig-full">
+        <div class="fig-card">
+            <img src="figures/summary_dashboard.png" alt="Summary Dashboard" loading="lazy">
+            <div class="fig-caption">Summary Dashboard &mdash; All Exploratory Visualizations</div>
+        </div>
+    </div>
+
+    <div class="findings-safe">
+        <h4>&#9989; Dataset Balance &mdash; Near-Perfect Ratio</h4>
+        <ul>
+            <li><span class="tag tag-phishing">Phishing</span> &mdash; 4,898 samples (44.3%)</li>
+            <li><span class="tag tag-legit">Legitimate</span> &mdash; 6,157 samples (55.7%)</li>
+        </ul>
+        <p style="margin-top:0.5rem;font-size:0.9rem;">Near-perfect balance: 4,898 Phishing (44.3%) vs 6,157 Legitimate (55.7%). This 1.26:1 ratio means models cannot cheat by predicting the majority class &mdash; they must genuinely learn the patterns that distinguish phishing from legitimate websites.</p>
+    </div>
+
+    <div class="commentary">
+        <strong>Feature Space Characteristics:</strong> This dataset encodes 30 URL and website characteristics as categorical features ({-1, 0, 1}) representing suspicious, neutral, and legitimate states. Unlike continuous datasets, these discrete features create axis-aligned decision boundaries that tree-based models can exploit naturally, while kernel methods must work harder to find non-linear separations in this discrete feature space.
+    </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- TAB 2: MODEL COMPARISON                                        -->
+<!-- ============================================================= -->
+<div id="tab-comparison" class="tab-content">
+    <h2 class="section-title">&#127942; Model Comparison</h2>
+    <p class="section-subtitle">Side-by-side comparison of all supervised classification and unsupervised clustering models.</p>
+
+    <div class="best-model-callout">
+        <span class="trophy">&#129351;</span>
+        <span class="model-name">Best Model: Multi-Layer Perceptron</span>
+        &mdash;
+        <span class="model-acc">Accuracy: 0.9724 (97.24%)</span>
+    </div>
+
+    <h3 class="subsection-title">Performance Metrics</h3>
+    <div class="table-wrap">
+        <table id="comparison-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Model</th>
+                    <th>Accuracy</th>
+                    <th>Precision (weighted)</th>
+                    <th>Recall (weighted)</th>
+                    <th>F1 (weighted)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="highlight-row">
+                    <td>1</td>
+                    <td>Multi-Layer Perceptron</td>
+                    <td class="highlight-cell">0.9724</td>
+                    <td class="highlight-cell">0.9724</td>
+                    <td class="highlight-cell">0.9724</td>
+                    <td class="highlight-cell">0.9724</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>Decision Tree</td>
+                    <td>0.9711</td>
+                    <td>0.9710</td>
+                    <td>0.9711</td>
+                    <td>0.9710</td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td>SVM (RBF Kernel)</td>
+                    <td>0.9521</td>
+                    <td>0.9519</td>
+                    <td>0.9521</td>
+                    <td>0.9519</td>
+                </tr>
+                <tr>
+                    <td>4</td>
+                    <td>K-Nearest Neighbours</td>
+                    <td>0.9484</td>
+                    <td>0.9484</td>
+                    <td>0.9484</td>
+                    <td>0.9484</td>
+                </tr>
+                <tr>
+                    <td>5</td>
+                    <td>Logistic Regression</td>
+                    <td>0.9285</td>
+                    <td>0.9284</td>
+                    <td>0.9285</td>
+                    <td>0.9284</td>
+                </tr>
+                <tr>
+                    <td>6</td>
+                    <td>SVM (Linear Kernel)</td>
+                    <td>0.9267</td>
+                    <td>0.9266</td>
+                    <td>0.9267</td>
+                    <td>0.9266</td>
+                </tr>
+                <tr>
+                    <td>7</td>
+                    <td>K-Means Clustering*</td>
+                    <td>0.7500</td>
+                    <td>0.7400</td>
+                    <td>0.7500</td>
+                    <td>0.7400</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.3rem;">* K-Means is an unsupervised method; accuracy measured via majority-vote label assignment.</p>
+
+    <div class="chart-row">
+        <div class="chart-box">
+            <h4>Accuracy Comparison</h4>
+            <canvas id="chart-accuracy"></canvas>
+        </div>
+        <div class="chart-box">
+            <h4>Multi-Metric Radar Chart</h4>
+            <canvas id="chart-radar"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-row">
+        <div class="chart-box" style="grid-column: 1 / -1;">
+            <h4>All Metrics Side by Side</h4>
+            <canvas id="chart-grouped"></canvas>
+        </div>
+    </div>
+
+    <h3 class="subsection-title">Pre-computed Comparison Figures</h3>
+    <div class="fig-grid">
+        <div class="fig-card">
+            <img src="figures/comparison_accuracy.png" alt="Comparison Accuracy" loading="lazy">
+            <div class="fig-caption">Accuracy Comparison Bar Chart</div>
+        </div>
+        <div class="fig-card">
+            <img src="figures/comparison_metrics.png" alt="Comparison Metrics" loading="lazy">
+            <div class="fig-caption">All Metrics Grouped Bar Chart</div>
+        </div>
+    </div>
+    <div class="fig-grid">
+        <div class="fig-card">
+            <img src="figures/comparison_radar.png" alt="Comparison Radar" loading="lazy">
+            <div class="fig-caption">Radar Chart &mdash; Multi-metric Overview</div>
+        </div>
+        <div class="fig-card">
+            <img src="figures/comparison_confusion_matrices.png" alt="Confusion Matrices" loading="lazy">
+            <div class="fig-caption">Confusion Matrices for All Models</div>
+        </div>
+    </div>
+
+    <div class="fig-full">
+        <div class="fig-card">
+            <img src="figures/summary_dashboard.png" alt="Summary Dashboard" loading="lazy">
+            <div class="fig-caption">Summary Dashboard</div>
+        </div>
+    </div>
+
+    <div class="commentary">
+        <strong>Analysis:</strong> Decision Tree and MLP lead at ~97%, which makes sense for this dataset. The discrete, categorical features ({-1, 0, 1}) create natural axis-aligned splits that Decision Trees exploit perfectly. MLP's advantage is capturing multi-feature interactions. The 4.6% spread between best (97.2%) and worst supervised (92.7%) shows meaningful model differentiation while all models achieve strong performance on this well-balanced dataset.
+    </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- TAB 3: MODEL DETAILS                                           -->
+<!-- ============================================================= -->
+<div id="tab-details" class="tab-content">
+    <h2 class="section-title">&#128269; Model Details</h2>
+    <p class="section-subtitle">Select a model to view its confusion matrix, specific visualizations, and detailed commentary.</p>
+
+    <div class="model-select-wrap">
+        <label for="model-select">Select Model:</label>
+        <select id="model-select" onchange="switchModel(this.value)">
+            <option value="mlp" selected>Multi-Layer Perceptron (MLP)</option>
+            <option value="decision_tree">Decision Tree</option>
+            <option value="svm_rbf">SVM (RBF Kernel)</option>
+            <option value="knn">K-Nearest Neighbours (KNN)</option>
+            <option value="logistic_regression">Logistic Regression</option>
+            <option value="svm_linear">SVM (Linear Kernel)</option>
+            <option value="kmeans">K-Means Clustering</option>
+        </select>
+    </div>
+
+    <!-- MLP -->
+    <div id="model-mlp" class="model-detail-panel active">
+        <div class="metrics-row">
+            <div class="metric-card"><div class="label">Accuracy</div><div class="value">97.24%</div></div>
+            <div class="metric-card"><div class="label">Precision</div><div class="value">97.24%</div></div>
+            <div class="metric-card"><div class="label">Recall</div><div class="value">97.24%</div></div>
+            <div class="metric-card"><div class="label">F1 Score</div><div class="value">97.24%</div></div>
+        </div>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/mlp_confusion_matrix.png" alt="MLP Confusion Matrix" loading="lazy">
+                <div class="fig-caption">MLP Confusion Matrix</div>
+            </div>
+            <div class="fig-card">
+                <img src="figures/mlp_loss_curve.png" alt="MLP Loss Curve" loading="lazy">
+                <div class="fig-caption">Training Loss Curve</div>
+            </div>
+        </div>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/mlp_decision_boundary.png" alt="MLP Decision Boundary" loading="lazy">
+                <div class="fig-caption">MLP Decision Boundary (2D PCA Projection)</div>
+            </div>
+            <div class="fig-card">
+                <img src="figures/mlp_architecture_comparison.png" alt="MLP Architecture Comparison" loading="lazy">
+                <div class="fig-caption">Architecture Comparison (Hidden Layer Sizes)</div>
+            </div>
+        </div>
+        <div class="commentary">
+            <strong>Multi-Layer Perceptron (MLP):</strong> The neural network achieves the best overall accuracy at 97.24%. With 11,055 samples and 30 categorical features encoding URL and website characteristics, the MLP captures complex multi-feature interaction patterns &mdash; for example, a site with a short-lived domain, no SSL, external form handler, AND disabled right-click is far more suspicious than any single signal alone. The MLP excels at learning these combinatorial patterns that distinguish phishing from legitimate sites.
+        </div>
+    </div>
+
+    <!-- Decision Tree -->
+    <div id="model-decision_tree" class="model-detail-panel">
+        <div class="metrics-row">
+            <div class="metric-card"><div class="label">Accuracy</div><div class="value">97.11%</div></div>
+            <div class="metric-card"><div class="label">Precision</div><div class="value">97.10%</div></div>
+            <div class="metric-card"><div class="label">Recall</div><div class="value">97.11%</div></div>
+            <div class="metric-card"><div class="label">F1 Score</div><div class="value">97.10%</div></div>
+        </div>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/decision_tree_confusion_matrix.png" alt="Decision Tree Confusion Matrix" loading="lazy">
+                <div class="fig-caption">Decision Tree Confusion Matrix</div>
+            </div>
+            <div class="fig-card">
+                <img src="figures/decision_tree_feature_importance.png" alt="Decision Tree Feature Importance" loading="lazy">
+                <div class="fig-caption">Feature Importance (Gini Impurity)</div>
+            </div>
+        </div>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/decision_tree_structure.png" alt="Decision Tree Structure" loading="lazy">
+                <div class="fig-caption">Tree Structure Visualization</div>
+            </div>
+            <div class="fig-card">
+                <img src="figures/decision_tree_overfitting.png" alt="Decision Tree Overfitting" loading="lazy">
+                <div class="fig-caption">Train vs Test Accuracy (Overfitting Analysis)</div>
+            </div>
+        </div>
+        <div class="commentary">
+            <strong>Decision Tree:</strong> Nearly matching MLP at 97.11%, the Decision Tree thrives on this dataset because all 30 features are already discrete ({-1, 0, 1}), creating natural axis-aligned decision boundaries. Each split corresponds directly to a yes/no question about a URL characteristic (e.g., "Is SSLfinal_State = -1?"). The feature importance plot reveals which phishing indicators the tree relies on most &mdash; expect URL-based features like SSLfinal_State, URL_of_Anchor, and having_Sub_Domain to rank highly. The tree is also highly interpretable, making it ideal for security analysts who need to explain why a URL was flagged.
+        </div>
+    </div>
+
+    <!-- SVM RBF -->
+    <div id="model-svm_rbf" class="model-detail-panel">
+        <div class="metrics-row">
+            <div class="metric-card"><div class="label">Accuracy</div><div class="value">95.21%</div></div>
+            <div class="metric-card"><div class="label">Precision</div><div class="value">95.19%</div></div>
+            <div class="metric-card"><div class="label">Recall</div><div class="value">95.21%</div></div>
+            <div class="metric-card"><div class="label">F1 Score</div><div class="value">95.19%</div></div>
+        </div>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/svm_rbf_confusion_matrix.png" alt="SVM RBF Confusion Matrix" loading="lazy">
+                <div class="fig-caption">SVM (RBF) Confusion Matrix</div>
+            </div>
+            <div class="fig-card">
+                <img src="figures/svm_rbf_decision_boundary.png" alt="SVM RBF Decision Boundary" loading="lazy">
+                <div class="fig-caption">SVM (RBF) Decision Boundary</div>
+            </div>
+        </div>
+        <div class="commentary">
+            <strong>SVM (RBF Kernel):</strong> The RBF kernel SVM achieves 95.21% accuracy. While typically a strong performer, the RBF kernel is somewhat disadvantaged here compared to tree-based methods. The discrete, categorical features ({-1, 0, 1}) create a feature space where distance-based kernels must work harder &mdash; the Euclidean distances the RBF kernel relies on are less meaningful when all features take only three possible values. Nevertheless, 95.21% demonstrates that the kernel can still find effective non-linear separations between phishing and legitimate patterns.
+        </div>
+    </div>
+
+    <!-- KNN -->
+    <div id="model-knn" class="model-detail-panel">
+        <div class="metrics-row">
+            <div class="metric-card"><div class="label">Accuracy</div><div class="value">94.84%</div></div>
+            <div class="metric-card"><div class="label">Precision</div><div class="value">94.84%</div></div>
+            <div class="metric-card"><div class="label">Recall</div><div class="value">94.84%</div></div>
+            <div class="metric-card"><div class="label">F1 Score</div><div class="value">94.84%</div></div>
+        </div>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/knn_confusion_matrix.png" alt="KNN Confusion Matrix" loading="lazy">
+                <div class="fig-caption">KNN Confusion Matrix</div>
+            </div>
+            <div class="fig-card">
+                <img src="figures/knn_k_vs_accuracy.png" alt="KNN K vs Accuracy" loading="lazy">
+                <div class="fig-caption">K Value vs Accuracy (Hyperparameter Tuning)</div>
+            </div>
+        </div>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/knn_decision_boundary.png" alt="KNN Decision Boundary" loading="lazy">
+                <div class="fig-caption">KNN Decision Boundary (2D PCA Projection)</div>
+            </div>
+        </div>
+        <div class="commentary">
+            <strong>K-Nearest Neighbours:</strong> KNN achieves 94.84% accuracy on the phishing dataset. It classifies each website based on the majority class of its K nearest neighbors in the 30-dimensional feature space. With discrete features, many samples share identical feature vectors, creating "tied" distances that KNN must resolve. The K vs Accuracy plot shows the optimal K value chosen via cross-validation. KNN performs well because phishing sites cluster together &mdash; they tend to share multiple suspicious characteristics simultaneously.
+        </div>
+    </div>
+
+    <!-- Logistic Regression -->
+    <div id="model-logistic_regression" class="model-detail-panel">
+        <div class="metrics-row">
+            <div class="metric-card"><div class="label">Accuracy</div><div class="value">92.85%</div></div>
+            <div class="metric-card"><div class="label">Precision</div><div class="value">92.84%</div></div>
+            <div class="metric-card"><div class="label">Recall</div><div class="value">92.85%</div></div>
+            <div class="metric-card"><div class="label">F1 Score</div><div class="value">92.84%</div></div>
+        </div>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/logistic_regression_confusion_matrix.png" alt="Logistic Regression Confusion Matrix" loading="lazy">
+                <div class="fig-caption">Logistic Regression Confusion Matrix</div>
+            </div>
+            <div class="fig-card">
+                <img src="figures/logistic_regression_feature_importance.png" alt="Logistic Regression Feature Importance" loading="lazy">
+                <div class="fig-caption">Feature Coefficients (Importance)</div>
+            </div>
+        </div>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/logistic_regression_roc.png" alt="Logistic Regression ROC" loading="lazy">
+                <div class="fig-caption">ROC Curve (Binary Classification)</div>
+            </div>
+        </div>
+        <div class="commentary">
+            <strong>Logistic Regression:</strong> At 92.85% accuracy, Logistic Regression provides a strong linear baseline for phishing detection. The feature coefficient plot reveals which URL characteristics have the largest linear impact on the phishing probability &mdash; features like SSLfinal_State and URL_of_Anchor tend to have large coefficients. The 4.4% gap to MLP (97.24%) indicates that significant non-linear feature interactions exist in phishing patterns that a linear model cannot capture, such as the interaction between domain age, SSL state, and external resources loading.
+        </div>
+    </div>
+
+    <!-- SVM Linear -->
+    <div id="model-svm_linear" class="model-detail-panel">
+        <div class="metrics-row">
+            <div class="metric-card"><div class="label">Accuracy</div><div class="value">92.67%</div></div>
+            <div class="metric-card"><div class="label">Precision</div><div class="value">92.66%</div></div>
+            <div class="metric-card"><div class="label">Recall</div><div class="value">92.67%</div></div>
+            <div class="metric-card"><div class="label">F1 Score</div><div class="value">92.66%</div></div>
+        </div>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/svm_linear_confusion_matrix.png" alt="SVM Linear Confusion Matrix" loading="lazy">
+                <div class="fig-caption">SVM (Linear) Confusion Matrix</div>
+            </div>
+            <div class="fig-card">
+                <img src="figures/svm_linear_decision_boundary.png" alt="SVM Linear Decision Boundary" loading="lazy">
+                <div class="fig-caption">SVM (Linear) Decision Boundary</div>
+            </div>
+        </div>
+        <div class="commentary">
+            <strong>SVM (Linear Kernel):</strong> The linear SVM achieves 92.67% accuracy, performing nearly identically to Logistic Regression (92.85%). Both are linear models finding hyperplanes in the 30-dimensional feature space, so the similar performance is expected. The 2.5% gap between linear SVM (92.67%) and RBF SVM (95.21%) confirms that non-linear feature interactions matter for phishing detection &mdash; phishing sites use combinations of deceptive techniques, not just individual suspicious features.
+        </div>
+    </div>
+
+    <!-- K-Means -->
+    <div id="model-kmeans" class="model-detail-panel">
+        <div class="metrics-row">
+            <div class="metric-card"><div class="label">Accuracy*</div><div class="value">75.00%</div></div>
+            <div class="metric-card"><div class="label">Precision</div><div class="value">74.00%</div></div>
+            <div class="metric-card"><div class="label">Recall</div><div class="value">75.00%</div></div>
+            <div class="metric-card"><div class="label">F1 Score</div><div class="value">74.00%</div></div>
+        </div>
+        <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">* Evaluated via majority-vote label assignment per cluster.</p>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/kmeans_clusters_2d.png" alt="K-Means Clusters 2D" loading="lazy">
+                <div class="fig-caption">K-Means Clusters in 2D PCA Space</div>
+            </div>
+            <div class="fig-card">
+                <img src="figures/kmeans_elbow.png" alt="K-Means Elbow" loading="lazy">
+                <div class="fig-caption">Elbow Method for Optimal K</div>
+            </div>
+        </div>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/kmeans_silhouette.png" alt="K-Means Silhouette" loading="lazy">
+                <div class="fig-caption">Silhouette Score Analysis</div>
+            </div>
+            <div class="fig-card">
+                <img src="figures/kmeans_silhouette_diagrams.png" alt="K-Means Silhouette Diagrams" loading="lazy">
+                <div class="fig-caption">Per-Cluster Silhouette Diagrams</div>
+            </div>
+        </div>
+        <div class="fig-grid">
+            <div class="fig-card">
+                <img src="figures/kmeans_cluster_centers.png" alt="K-Means Cluster Centers" loading="lazy">
+                <div class="fig-caption">Cluster Centers Feature Profile</div>
+            </div>
+        </div>
+        <div class="commentary">
+            <strong>K-Means Clustering:</strong> As an unsupervised method, K-Means achieves 75.00% accuracy via majority-vote mapping &mdash; notably higher than the 65% achieved on the Dry Bean dataset. Binary classification is inherently easier for K-Means since it only needs to discover 2 natural clusters instead of 7. The discrete feature space ({-1, 0, 1}) means cluster centroids are interpretable &mdash; each centroid represents an "average feature profile" for phishing or legitimate websites. The 22% gap to supervised models shows the clear value of labeled training data for security-critical applications.
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- TAB 4: PCA & CLUSTERING                                        -->
+<!-- ============================================================= -->
+<div id="tab-pca" class="tab-content">
+    <h2 class="section-title">&#127757; PCA &amp; Clustering Analysis</h2>
+    <p class="section-subtitle">Dimensionality reduction and unsupervised pattern discovery in the phishing websites dataset.</p>
+
+    <h3 class="subsection-title">Principal Component Analysis (PCA)</h3>
+    <div class="fig-grid">
+        <div class="fig-card">
+            <img src="figures/pca_explained_variance.png" alt="PCA Explained Variance" loading="lazy">
+            <div class="fig-caption">Individual Explained Variance per Component</div>
+        </div>
+        <div class="fig-card">
+            <img src="figures/pca_cumulative_variance.png" alt="PCA Cumulative Variance" loading="lazy">
+            <div class="fig-caption">Cumulative Explained Variance</div>
+        </div>
+    </div>
+
+    <div class="fig-grid">
+        <div class="fig-card">
+            <img src="figures/pca_2d_scatter.png" alt="PCA 2D Scatter" loading="lazy">
+            <div class="fig-caption">2D PCA Scatter &mdash; Colored by Class (Phishing vs Legitimate)</div>
+        </div>
+        <div class="fig-card">
+            <img src="figures/pca_biplot.png" alt="PCA Biplot" loading="lazy">
+            <div class="fig-caption">PCA Biplot (Feature Vectors + Samples)</div>
+        </div>
+    </div>
+
+    <div class="fig-grid">
+        <div class="fig-card">
+            <img src="figures/pca_3d_scatter.png" alt="PCA 3D Scatter" loading="lazy">
+            <div class="fig-caption">3D PCA Scatter &mdash; Colored by Class</div>
+        </div>
+        <div class="fig-card">
+            <img src="figures/pca_loadings_heatmap.png" alt="PCA Loadings Heatmap" loading="lazy">
+            <div class="fig-caption">PCA Loadings Heatmap (Feature Contributions)</div>
+        </div>
+    </div>
+
+    <div class="findings">
+        <h4>Key PCA Findings</h4>
+        <ul>
+            <li>With 30 discrete features ({-1, 0, 1}), PCA variance is more evenly distributed than with continuous data &mdash; no single component dominates, requiring more components to capture total variance.</li>
+            <li>The biplot reveals which URL/website features contribute most to the first two principal components &mdash; security-related features like <strong>SSLfinal_State</strong>, <strong>URL_of_Anchor</strong>, and <strong>having_Sub_Domain</strong> are expected to be major drivers.</li>
+            <li>The 2D scatter shows partial but not complete separation of phishing and legitimate classes, explaining why all supervised models achieve &gt;92% but none reach 100% &mdash; some phishing sites mimic legitimate characteristics effectively.</li>
+            <li>3D PCA provides better class separation, revealing that the phishing-legitimate boundary is a non-linear surface in the full 30-dimensional feature space.</li>
+        </ul>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 class="subsection-title">K-Means Clustering</h3>
+    <div class="fig-grid">
+        <div class="fig-card">
+            <img src="figures/kmeans_elbow.png" alt="Elbow Method" loading="lazy">
+            <div class="fig-caption">Elbow Method &mdash; Inertia vs K</div>
+        </div>
+        <div class="fig-card">
+            <img src="figures/kmeans_silhouette.png" alt="Silhouette Analysis" loading="lazy">
+            <div class="fig-caption">Silhouette Score vs K</div>
+        </div>
+    </div>
+
+    <div class="fig-grid">
+        <div class="fig-card">
+            <img src="figures/kmeans_clusters_2d.png" alt="K-Means Clusters" loading="lazy">
+            <div class="fig-caption">K-Means Clusters in PCA Space</div>
+        </div>
+        <div class="fig-card">
+            <img src="figures/kmeans_cluster_centers.png" alt="Cluster Centers" loading="lazy">
+            <div class="fig-caption">Cluster Center Profiles</div>
+        </div>
+    </div>
+
+    <div class="fig-grid">
+        <div class="fig-card">
+            <img src="figures/kmeans_silhouette_diagrams.png" alt="Silhouette Diagrams" loading="lazy">
+            <div class="fig-caption">Per-Cluster Silhouette Diagrams</div>
+        </div>
+    </div>
+
+    <div class="findings">
+        <h4>Key Clustering Findings</h4>
+        <ul>
+            <li>The elbow plot is expected to show a natural bend at <strong>K=2</strong>, aligning perfectly with the binary phishing/legitimate classification. A secondary elbow at K=3&ndash;4 may suggest sub-types within phishing (e.g., credential theft vs malware distribution) or legitimate sites.</li>
+            <li>Cluster centroids are directly interpretable as "average phishing site" and "average legitimate site" feature profiles, since all features are categorical ({-1, 0, 1}). This makes K-Means output actionable for security policy rules.</li>
+            <li>Silhouette scores indicate moderate cluster separation &mdash; consistent with the observation that sophisticated phishing sites deliberately mimic legitimate features to evade detection.</li>
+            <li>The 75% K-Means accuracy confirms that phishing and legitimate sites form partially separable clusters even without supervision, but the 22% gap to supervised models justifies the need for labeled training data in production security systems.</li>
+        </ul>
+    </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- TAB 5: ABOUT                                                   -->
+<!-- ============================================================= -->
+<div id="tab-about" class="tab-content">
+    <h2 class="section-title">&#9432; About This Project</h2>
+    <p class="section-subtitle">CSAI412 Machine Learning Group Project &mdash; Fall 2026</p>
+
+    <div class="about-grid">
+        <div class="about-card">
+            <h4>&#127891; Project Overview</h4>
+            <p style="margin-bottom:0.8rem;">This project applies multiple supervised and unsupervised machine learning algorithms to the <strong>UCI Phishing Websites Dataset</strong> (R.M. Mohammad et al., University of Huddersfield) to classify websites as phishing or legitimate based on URL and website characteristics.</p>
+            <ul>
+                <li><strong>Course:</strong> CSAI412 &mdash; Machine Learning</li>
+                <li><strong>Semester:</strong> Fall 2026</li>
+                <li><strong>Dataset:</strong> UCI Phishing Websites (Mohammad et al.)</li>
+                <li><strong>Samples:</strong> 11,055</li>
+                <li><strong>Features:</strong> 30 URL/website characteristics ({-1, 0, 1})</li>
+                <li><strong>Target:</strong> Binary &mdash; Phishing (-1) vs Legitimate (1)</li>
+            </ul>
+        </div>
+        <div class="about-card">
+            <h4>&#128101; Team Members</h4>
+            <ul>
+                <li><strong>Nazim Ahmed</strong> &mdash; Project setup, data preprocessing, EDA, Logistic Regression, SVM (Linear &amp; RBF), dashboard development, project coordination</li>
+                <li><strong>Danniyaal Ahmed</strong> &mdash; KNN implementation, Decision Tree implementation, K-Means clustering &amp; PCA analysis, comparative analysis</li>
+                <li><strong>Mohamed Talha</strong> &mdash; MLP implementation, technical report writing, Jupyter notebook compilation, testing &amp; validation</li>
+            </ul>
+            <h4 style="margin-top:1.5rem;">&#128736; Tech Stack</h4>
+            <ul>
+                <li>Python 3.11 + scikit-learn</li>
+                <li>Streamlit (original interactive GUI)</li>
+                <li>Plotly &amp; Matplotlib (visualizations)</li>
+                <li>NumPy, Pandas (data processing)</li>
+                <li>Chart.js (static dashboard)</li>
+                <li>Cloudflare Pages (deployment)</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 class="subsection-title">Methodology</h3>
+    <div style="max-width: 800px;">
+        <div class="methodology-step">
+            <div class="step-num">1</div>
+            <div class="step-text">
+                <h5>Data Collection &amp; Preprocessing</h5>
+                <p>Loaded UCI Phishing Websites dataset (11,055 samples, 30 categorical features encoded as {-1, 0, 1}). Applied StandardScaler normalization. No missing values. Stratified 80/20 train-test split preserving class proportions (44.3% phishing, 55.7% legitimate).</p>
+            </div>
+        </div>
+        <div class="methodology-step">
+            <div class="step-num">2</div>
+            <div class="step-text">
+                <h5>Exploratory Data Analysis (EDA)</h5>
+                <p>Analyzed binary class distribution, feature correlations with target, per-class feature proportions, and URL characteristic distributions to understand phishing indicators and class separability.</p>
+            </div>
+        </div>
+        <div class="methodology-step">
+            <div class="step-num">3</div>
+            <div class="step-text">
+                <h5>Model Training &amp; Hyperparameter Tuning</h5>
+                <p>Trained 6 supervised models (KNN, SVM-RBF, SVM-Linear, Decision Tree, Logistic Regression, MLP) and 1 unsupervised model (K-Means). Used GridSearchCV with 5-fold stratified cross-validation for hyperparameter optimization.</p>
+            </div>
+        </div>
+        <div class="methodology-step">
+            <div class="step-num">4</div>
+            <div class="step-text">
+                <h5>Evaluation &amp; Comparison</h5>
+                <p>Evaluated all models using accuracy, weighted precision, weighted recall, and weighted F1 score. Generated confusion matrices, ROC curves, decision boundaries, and feature importance plots for each model.</p>
+            </div>
+        </div>
+        <div class="methodology-step">
+            <div class="step-num">5</div>
+            <div class="step-text">
+                <h5>Dimensionality Reduction &amp; Clustering</h5>
+                <p>Applied PCA for visualization and understanding feature contributions in the 30-dimensional discrete space. Performed K-Means clustering with elbow method and silhouette analysis to discover natural groupings among phishing and legitimate websites.</p>
+            </div>
+        </div>
+        <div class="methodology-step">
+            <div class="step-num">6</div>
+            <div class="step-text">
+                <h5>Dashboard &amp; Deployment</h5>
+                <p>Built an interactive Streamlit dashboard for exploration and prediction. Created a static web dashboard deployed to Cloudflare Pages for universal access without requiring Python.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 class="subsection-title">Key Results Summary</h3>
+    <div class="commentary">
+        <ul style="margin-left: 1.2rem;">
+            <li><strong>Best Model:</strong> Multi-Layer Perceptron &mdash; 97.24% accuracy, 97.24% F1</li>
+            <li><strong>Runner-up:</strong> Decision Tree &mdash; 97.11% accuracy, near-identical to MLP thanks to discrete features</li>
+            <li><strong>Key Insight:</strong> Discrete categorical features ({-1, 0, 1}) strongly favor tree-based and neural network models over distance/kernel-based methods</li>
+            <li><strong>Strength:</strong> Near-perfect 1.26:1 class balance ensures accuracy is meaningful &mdash; no majority-class inflation</li>
+            <li><strong>PCA Finding:</strong> Variance is distributed across many components due to 30 discrete features; phishing/legitimate classes show partial but not complete separation in 2D</li>
+            <li><strong>Security Implication:</strong> 97.24% accuracy means ~3% of phishing sites evade detection &mdash; these are sophisticated sites that successfully mimic legitimate feature patterns</li>
+        </ul>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 class="subsection-title">References</h3>
+    <div class="about-card" style="margin-top:0.5rem;">
+        <ul>
+            <li>R.M. Mohammad, F. Thabtah, L. McCluskey. <em>Phishing Websites Features.</em> University of Huddersfield. UCI Machine Learning Repository.</li>
+            <li>R.M. Mohammad, F. Thabtah, L. McCluskey. <em>Intelligent Rule-Based Phishing Websites Classification.</em> IET Information Security, 2014.</li>
+            <li>UCI Machine Learning Repository &mdash; Phishing Websites Dataset</li>
+            <li>scikit-learn: Machine Learning in Python, Pedregosa et al., JMLR 12, 2011</li>
+        </ul>
+    </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- FOOTER                                                         -->
+<!-- ============================================================= -->
+<div class="footer">
+    CSAI412 Machine Learning &mdash; Phishing Website Detection &mdash; Fall 2026<br>
+    Built with Python, scikit-learn, Chart.js &amp; Cloudflare Pages
+</div>
+
+<!-- ============================================================= -->
+<!-- JAVASCRIPT                                                     -->
+<!-- ============================================================= -->
+<script>
+// ------------------------------------------------------------------
+// Tab switching
+// ------------------------------------------------------------------
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    // Find the correct button
+    const btns = document.querySelectorAll('.tab-btn');
+    const tabMap = ['dataset', 'comparison', 'details', 'pca', 'about'];
+    const idx = tabMap.indexOf(tabId);
+    if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
+    // Initialize charts when comparison tab is shown
+    if (tabId === 'comparison') initCharts();
+}
+
+// ------------------------------------------------------------------
+// Model detail switching
+// ------------------------------------------------------------------
+function switchModel(modelId) {
+    document.querySelectorAll('.model-detail-panel').forEach(el => el.classList.remove('active'));
+    const panel = document.getElementById('model-' + modelId);
+    if (panel) panel.classList.add('active');
+}
+
+// ------------------------------------------------------------------
+// Chart.js Charts (initialized once)
+// ------------------------------------------------------------------
+let chartsInitialized = false;
+
+const modelNames = [
+    'MLP', 'Decision Tree', 'SVM-RBF', 'KNN', 'Logistic Reg.', 'SVM-Linear', 'K-Means*'
+];
+const modelColors = [
+    '#1A237E', '#283593', '#1565C0', '#D32F2F', '#388E3C', '#0097A7', '#FF6F00'
+];
+const modelColorsAlpha = [
+    'rgba(26,35,126,0.15)', 'rgba(40,53,147,0.15)', 'rgba(21,101,192,0.15)',
+    'rgba(211,47,47,0.15)', 'rgba(56,142,60,0.15)', 'rgba(0,151,167,0.15)',
+    'rgba(255,111,0,0.15)'
+];
+
+const accuracies =  [0.9724, 0.9711, 0.9521, 0.9484, 0.9285, 0.9267, 0.7500];
+const precisions =  [0.9724, 0.9710, 0.9519, 0.9484, 0.9284, 0.9266, 0.7400];
+const recalls =     [0.9724, 0.9711, 0.9521, 0.9484, 0.9285, 0.9267, 0.7500];
+const f1scores =    [0.9724, 0.9710, 0.9519, 0.9484, 0.9284, 0.9266, 0.7400];
+
+function initCharts() {
+    if (chartsInitialized) return;
+    chartsInitialized = true;
+
+    // --- Accuracy bar chart ---
+    new Chart(document.getElementById('chart-accuracy'), {
+        type: 'bar',
+        data: {
+            labels: modelNames,
+            datasets: [{
+                label: 'Accuracy',
+                data: accuracies,
+                backgroundColor: modelColors,
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => 'Accuracy: ' + (ctx.raw * 100).toFixed(2) + '%'
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    min: 0.65,
+                    max: 1.0,
+                    ticks: { callback: v => (v * 100).toFixed(0) + '%' },
+                    title: { display: true, text: 'Accuracy' }
+                },
+                x: {
+                    ticks: { maxRotation: 45 }
+                }
+            }
+        }
+    });
+
+    // --- Radar chart ---
+    const radarLabels = ['Accuracy', 'Precision', 'Recall', 'F1 Score'];
+    const radarDatasets = modelNames.map((name, i) => ({
+        label: name,
+        data: [accuracies[i], precisions[i], recalls[i], f1scores[i]],
+        borderColor: modelColors[i],
+        backgroundColor: modelColorsAlpha[i],
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: modelColors[i],
+    }));
+
+    new Chart(document.getElementById('chart-radar'), {
+        type: 'radar',
+        data: { labels: radarLabels, datasets: radarDatasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { boxWidth: 12, padding: 10, font: { size: 11 } }
+                }
+            },
+            scales: {
+                r: {
+                    min: 0.6,
+                    max: 1.0,
+                    ticks: { stepSize: 0.1, callback: v => (v * 100).toFixed(0) + '%' },
+                    pointLabels: { font: { size: 12, weight: '600' } }
+                }
+            }
+        }
+    });
+
+    // --- Grouped bar chart ---
+    const metrics = ['Accuracy', 'Precision', 'Recall', 'F1 Score'];
+    const metricData = [accuracies, precisions, recalls, f1scores];
+    const metricColors = ['#1A237E', '#1565C0', '#D32F2F', '#388E3C'];
+
+    new Chart(document.getElementById('chart-grouped'), {
+        type: 'bar',
+        data: {
+            labels: modelNames,
+            datasets: metrics.map((m, i) => ({
+                label: m,
+                data: metricData[i],
+                backgroundColor: metricColors[i],
+                borderRadius: 4,
+                borderSkipped: false,
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { boxWidth: 12, padding: 12, font: { size: 11 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.dataset.label + ': ' + (ctx.raw * 100).toFixed(2) + '%'
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    min: 0.6,
+                    max: 1.0,
+                    ticks: { callback: v => (v * 100).toFixed(0) + '%' },
+                    title: { display: true, text: 'Score' }
+                },
+                x: {
+                    ticks: { maxRotation: 45 }
+                }
+            }
+        }
+    });
+}
+</script>
+
+</body>
+</html>
